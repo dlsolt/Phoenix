@@ -1,4 +1,4 @@
-#define MY_CALL                                 "ABCDE" // Default max is 10 chars
+#define MY_CALL                                 "n3ds" // Default max is 10 chars
 #define MY_TIMEZONE                             "EST: "  // Default max is 10 chars
 //#define ITU_REGION                            1  // Europe
 #define ITU_REGION                              2  // USA
