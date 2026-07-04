@@ -32,6 +32,13 @@ If not, see <https://www.gnu.org/licenses/>.
 // TX IQ calibration oscillator - used for transmit IQ calibration
 extern AudioSynthWaveformSine transmitIQcal_oscillator;
 
+#ifdef T41_USB_AUDIO
+// FT8 RX audio queues: filled by Ft8UsbBridge_DrainToUSB() via the public
+// AudioPlayQueue API, carried to AudioOutputUSB by the standard audio graph.
+extern AudioPlayQueue Q_usbOut_L;
+extern AudioPlayQueue Q_usbOut_R;
+#endif
+
 /**
  * @brief Configure I2S sample rate via PLL clock calculations
  * @param freq Desired sample rate in Hz (typically 48000, 96000, or 192000)

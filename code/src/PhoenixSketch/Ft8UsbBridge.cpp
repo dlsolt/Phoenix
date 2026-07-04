@@ -13,6 +13,7 @@
 #include <string.h>
 #include "Ft8UsbBridge.h"
 #include "Config.h"
+#include "MainBoard_AudioIO.h"
 static volatile bool g_ft8TxActive = false;
 
 #if defined(T41_USB_AUDIO) && (defined(USB_AUDIO) || defined(USB_MIDI_AUDIO_SERIAL))
@@ -278,8 +279,9 @@ void Ft8UsbBridge_DrainToUSB(void)
     if (g_ft8TxActive) return;
     if (RxFifoCount() < AUDIO_BLOCK_SAMPLES) return;
 
-    int16_t left_buf[AUDIO_BLOCK_SAMPLES];
-    int16_t right_buf[AUDIO_BLOCK_SAMPLES];
+    int16_t *left_buf  = Q_usbOut_L.getBuffer();
+    int16_t *right_buf = Q_usbOut_R.getBuffer();
+    if (!left_buf || !right_buf) return;  // queue full this cycle; retry next tick
 
     for (int k = 0; k < AUDIO_BLOCK_SAMPLES; k++) {
         float x = 0.0f;
@@ -290,7 +292,8 @@ void Ft8UsbBridge_DrainToUSB(void)
         left_buf[k] = s;
         right_buf[k] = s;
     }
-    usb_audio_push_block(left_buf, right_buf);
+    Q_usbOut_L.playBuffer();
+    Q_usbOut_R.playBuffer();
 }
 
 void Ft8UsbBridge_SetTxActive(bool on)

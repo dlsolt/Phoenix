@@ -144,8 +144,7 @@ AudioOutputI2SQuad       i2s_quadOut;    //xy=1969.75,138
 #ifdef T41_USB_AUDIO
 AudioPlayQueue Q_usbOut_L;
 AudioPlayQueue Q_usbOut_R;
-// usbOut removed from audio graph — tx_event owns USB transmit directly
-// AudioOutputUSB usbOut;
+AudioOutputUSB usbOut;
 AudioAmplifier usbRxGainL;
 AudioAmplifier usbRxGainR;
 #endif
@@ -174,12 +173,12 @@ AudioConnection          patchCord21(modeSelectOutExR, 0, i2s_quadOut, 1);
 AudioConnection          patchCord22(modeSelectOutR,   0, i2s_quadOut, 3);
 
 #ifdef T41_USB_AUDIO
-// Q_usbOut_L/R disconnected — Ft8UsbBridge_DrainToUSB() sends directly
-// AudioConnection patchUsbGainL(Q_usbOut_L, 0, usbRxGainL, 0);
-// AudioConnection patchUsbGainR(Q_usbOut_R, 0, usbRxGainR, 0);
-// AudioConnection patchUsbL(usbRxGainL, 0, usbOut, 0);
-// AudioConnection patchUsbR(usbRxGainR, 0, usbOut, 1);
-// USB audio input (from WSJT-X) connected to channel 2 of TX input mixer
+// Ft8UsbBridge_DrainToUSB() fills Q_usbOut_L/R via the public AudioPlayQueue
+// API; the standard audio graph carries it from there to AudioOutputUSB.
+AudioConnection patchUsbGainL(Q_usbOut_L, 0, usbRxGainL, 0);
+AudioConnection patchUsbGainR(Q_usbOut_R, 0, usbRxGainR, 0);
+AudioConnection patchUsbL(usbRxGainL, 0, usbOut, 0);
+AudioConnection patchUsbR(usbRxGainR, 0, usbOut, 1);
 #endif
 
 AudioControlSGTL5000     pcm5102_mainBoard; //xy=874.75,449
@@ -568,8 +567,16 @@ void InitializeAudio(void){
 
 #ifdef T41_USB_AUDIO
     Ft8UsbBridge_Init((float)SR[SampleRate].rate);
-    usbRxGainL.gain(0.1f);
-    usbRxGainR.gain(0.1f);
+    usbRxGainL.gain(1.0f);
+    usbRxGainR.gain(1.0f);
+    // NON_STALLING: getBuffer()/playBuffer() must never spin-wait — this is
+    // called from an IntervalTimer ISR context.
+    Q_usbOut_L.setBehaviour(AudioPlayQueue::NON_STALLING);
+    Q_usbOut_R.setBehaviour(AudioPlayQueue::NON_STALLING);
+    // Cap queue depth so a stalled PC-side consumer can't grow latency
+    // unbounded; matches the ~2-block depth the old double-buffer used.
+    Q_usbOut_L.setMaxBuffers(3);
+    Q_usbOut_R.setMaxBuffers(3);
     SetFt8Mode(false);
     static IntervalTimer usbAudioTimer;
     usbAudioTimer.begin([]() { Ft8UsbBridge_DrainToUSB(); }, 2902);
